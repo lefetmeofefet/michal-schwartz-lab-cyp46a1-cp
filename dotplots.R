@@ -137,7 +137,9 @@ ggsave(glue("2_Tnfrsf_genes_epithelial_cells.svg"), p, width=4, height=5)
 ### MTX seurat
 annotations <- read.csv("annotations.csv")
 data_10x = Read10X(
-  "/path/to/10x_data_folder", # Should contain matrix.mtx, genes.tsv, and barcodes.tsv files
+  "/path/to/10x_data_folder", # Should contain matrix.mtx, genes.tsv, and barcodes.tsv files. 
+  # You can find the files in the download section of https://singlecell.broadinstitute.org/single_cell/study/SCP1366/choroid-plexus-nucleus-atlas#study-download.
+  # Rename the files [sc_rna_data.mtx, sc_rna_genes.tsv, sc_rna_barcodes.tsv] to the names above
   gene.column = 1
 )
 seurat <- CreateSeuratObject(counts = data_10x)
