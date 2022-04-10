@@ -108,7 +108,7 @@ ggsave(glue("Nr1h2 + Nr1h3 dotplot.svg"), p, width=6, height=5)
 p <- GenerateDotplot(data, "cellType", c('Tnfrsf1a', 'Tnfrsf1b'))
 ggsave(glue("Tnfrsf1a + Tnfrsf1b dotplot.svg"), p, width=6, height=5)
 
-### Only epithelial cells
+### Only epithelial cells (DO THIS AFTER GENERATING UMAPS, DATA IS NEEDED FOR ALL CELLTYPES)
 annotations <- read.csv("annotations.csv")
 data <- PrepareData(
   annotations, 
@@ -122,15 +122,15 @@ ggplot(data, aes(y=age)) + geom_bar() # Make sure we equalized populations
 number_of_cells <- nrow(data)
 
 p <- GenerateDotplot(data, "cellType", c('Cyp46a1', 'Ch25h', 'Cyp7a1', 'Cyp11a1', 'Cyp27a1'))
-p = p + coord_flip() + theme(axis.text.y = element_text(face = "italic"), axis.text.x = element_text(face = "plain"))
+p = p + coord_flip() + theme(axis.text.y = element_text(face = "italic"), axis.text.x = element_text(face = "plain")) + scale_y_discrete(labels=c("Epithelial"))
 ggsave(glue("5_Cyp_genes_epithelial_cells.svg"), p, width=4, height=5)
 
 p <- GenerateDotplot(data, "cellType", c('Nr1h2', "Nr1h3"))
-p = p + coord_flip() + theme(axis.text.y = element_text(face = "italic"), axis.text.x = element_text(face = "plain"))
+p = p + coord_flip() + theme(axis.text.y = element_text(face = "italic"), axis.text.x = element_text(face = "plain")) + scale_y_discrete(labels=c("Epithelial")
 ggsave(glue("2_Nr1h_genes_epithelial_cells.svg"), p, width=4, height=5)
 
 p <- GenerateDotplot(data, "cellType", c('Tnfrsf1a', 'Tnfrsf1b'))
-p = p + coord_flip() + theme(axis.text.y = element_text(face = "italic"), axis.text.x = element_text(face = "plain"))
+p = p + coord_flip() + theme(axis.text.y = element_text(face = "italic"), axis.text.x = element_text(face = "plain")) + scale_y_discrete(labels=c("Epithelial")
 ggsave(glue("2_Tnfrsf_genes_epithelial_cells.svg"), p, width=4, height=5)
 
 
@@ -145,7 +145,7 @@ data_10x = Read10X(
 seurat <- CreateSeuratObject(counts = data_10x)
 
 # Set Idents: age, ventricle, cellType
-seurat@meta.data$condition_ventricle = annotations$ventricle # Data is from the CSV
+seurat@meta.data$condition_ventricle = annotations$ventricle
 seurat@meta.data$condition_age = annotations$age
 seurat@meta.data$condition_cellType = annotations$cellType
 seurat@meta.data$condition_cellTypeSubset = annotations$cellTypeSubset
@@ -155,26 +155,27 @@ seurat <- SetIdent(object = seurat, value = "condition_age")
 seurat <- SetIdent(object = seurat, value = "condition_cellType")
 seurat <- SetIdent(object = seurat, value = "condition_cellTypeSubset")
 
-# Subset & scale
-subsetted_seurat <- seurat
-subsetted_seurat <- seurat[c("Cyp46a1", "Ch25h", "Cyp7a1", "Cyp11a1", "Cyp27a1"), ]
-subsetted_seurat <- seurat[c("Cyp46a1"), ]
 
 # Filter out Embryos, and make aged same number as adults
+subsetted_seurat <- seurat
 seurat_young_subset = subset(subsetted_seurat, subset = condition_age == "Young")
 seurat_aged_subset = subset(subsetted_seurat, subset = condition_age == "Aged")
 num_of_young_cells <- ncol(seurat_young_subset)
 seurat_aged_subset <- seurat_aged_subset[, sample(colnames(seurat_aged_subset), size=num_of_young_cells, replace=F)]
 subsetted_seurat <- merge(seurat_aged_subset, seurat_young_subset)
 
+# OR just use the same cells in data variable from before
+subsetted_seurat <- subset(seurat, cells = data$cell)
+
 # Make sure the age amounts are equalized
 seurat_young_subset
 seurat_aged_subset
 
-subsetted_seurat = subset(subsetted_seurat, downsample = 1000)
+# Downsample (don't do this for the finalized umaps)
+# subsetted_seurat = subset(subsetted_seurat, downsample = 1000)
 
 # Normalize + Scale
-subsetted_seurat = NormalizeData(subsetted_seurat)
+#subsetted_seurat = NormalizeData(subsetted_seurat) # Data is already normalized
 subsetted_seurat <- FindVariableFeatures(subsetted_seurat)
 subsetted_seurat = ScaleData(subsetted_seurat)
 
@@ -251,3 +252,11 @@ ggsave(glue("Scatter_correlation_cyp46a1_x_sp1.svg"), p, width=7, height=5)
 expressing_data = p$data[p$data$Cyp46a1 > 0 & p$data$Sp1 > 0,]
 table(expressing_data$colors)
 
+# Correlation test
+cor.test(expressing_data$Cyp46a1, 
+         expressing_data$Sp1,
+         method = "spearman")
+
+# Save the data
+saveRDS(subsetted_seurat, "subsetted_seurat_after_umap.rds")
+saveRDS(data, "subsetted_data.rds")
