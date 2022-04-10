@@ -4,8 +4,9 @@ library(glue)
 library(ggplot2)
 library(Seurat)
 
-setwd("/path/to/data")
+# Load annotations - the file is in the github repository
 
+setwd("/path/to/data")
 
 PrepareData <- function(annotations, seurat_10x, genes) {
   data <- annotations
@@ -75,7 +76,7 @@ GenerateDotplot <- function(data, condition, genes) {
     ) + 
     theme_classic() +
     theme(
-      axis.text = element_text(size = 12), 
+      axis.text = element_text(sizecr = 12), 
       axis.text.x = element_text(face = "italic"),
     ) +
     scale_size(range = c(4,18)) +
@@ -85,7 +86,7 @@ GenerateDotplot <- function(data, condition, genes) {
 }
 
 ### Cells across celltypes
-annotations <- read.csv("annotations.csv")
+# annotations <- read.csv("annotations.csv") # Don't need this - we already have it in memory from annotations.RData file
 data <- PrepareData(
   annotations, 
   seurat, 
@@ -109,33 +110,33 @@ p <- GenerateDotplot(data, "cellType", c('Tnfrsf1a', 'Tnfrsf1b'))
 ggsave(glue("Tnfrsf1a + Tnfrsf1b dotplot.svg"), p, width=6, height=5)
 
 ### Only epithelial cells (DO THIS AFTER GENERATING UMAPS, DATA IS NEEDED FOR ALL CELLTYPES)
-annotations <- read.csv("annotations.csv")
-data <- PrepareData(
+# annotations <- read.csv("annotations.csv") # Don't need this - we already have it in memory from annotations.RData file
+epithelial_data <- PrepareData(
   annotations, 
   seurat, 
   c('Cyp46a1', 'Ch25h', 'Cyp7a1', 'Cyp11a1', 'Cyp27a1', 'Tnfrsf1a', 'Tnfrsf1b', 'Nr1h2', 'Nr1h3', 'Cdh1', 'Sp1')
 )
-data <- data[data$cellType == "Epithelial cell",] # Filter only epithelial cells
-data <- SubsampleNormalizeAge(data)
+epithelial_data <- epithelial_data[epithelial_data$cellType == "Epithelial cell",] # Filter only epithelial cells
+epithelial_data <- SubsampleNormalizeAge(epithelial_data)
 
-ggplot(data, aes(y=age)) + geom_bar() # Make sure we equalized populations
-number_of_cells <- nrow(data)
+ggplot(epithelial_data, aes(y=age)) + geom_bar() # Make sure we equalized populations
+number_of_cells <- nrow(epithelial_data)
 
-p <- GenerateDotplot(data, "cellType", c('Cyp46a1', 'Ch25h', 'Cyp7a1', 'Cyp11a1', 'Cyp27a1'))
+p <- GenerateDotplot(epithelial_data, "cellType", c('Cyp46a1', 'Ch25h', 'Cyp7a1', 'Cyp11a1', 'Cyp27a1'))
 p = p + coord_flip() + theme(axis.text.y = element_text(face = "italic"), axis.text.x = element_text(face = "plain")) + scale_y_discrete(labels=c("Epithelial"))
 ggsave(glue("5_Cyp_genes_epithelial_cells.svg"), p, width=4, height=5)
 
-p <- GenerateDotplot(data, "cellType", c('Nr1h2', "Nr1h3"))
-p = p + coord_flip() + theme(axis.text.y = element_text(face = "italic"), axis.text.x = element_text(face = "plain")) + scale_y_discrete(labels=c("Epithelial")
+p <- GenerateDotplot(epithelial_data, "cellType", c('Nr1h2', "Nr1h3"))
+p = p + coord_flip() + theme(axis.text.y = element_text(face = "italic"), axis.text.x = element_text(face = "plain")) + scale_y_discrete(labels=c("Epithelial"))
 ggsave(glue("2_Nr1h_genes_epithelial_cells.svg"), p, width=4, height=5)
 
-p <- GenerateDotplot(data, "cellType", c('Tnfrsf1a', 'Tnfrsf1b'))
-p = p + coord_flip() + theme(axis.text.y = element_text(face = "italic"), axis.text.x = element_text(face = "plain")) + scale_y_discrete(labels=c("Epithelial")
+p <- GenerateDotplot(epithelial_data, "cellType", c('Tnfrsf1a', 'Tnfrsf1b'))
+p = p + coord_flip() + theme(axis.text.y = element_text(face = "italic"), axis.text.x = element_text(face = "plain")) + scale_y_discrete(labels=c("Epithelial"))
 ggsave(glue("2_Tnfrsf_genes_epithelial_cells.svg"), p, width=4, height=5)
 
 
-### MTX seurat
-annotations <- read.csv("annotations.csv")
+### MTX seurat. We already loaded this part from the state.RData file
+# annotations <- read.csv("annotations.csv")
 data_10x = Read10X(
   "/path/to/10x_data_folder", # Should contain matrix.mtx, genes.tsv, and barcodes.tsv files. 
   # You can find the files in the download section of https://singlecell.broadinstitute.org/single_cell/study/SCP1366/choroid-plexus-nucleus-atlas#study-download.
@@ -179,11 +180,15 @@ seurat_aged_subset
 subsetted_seurat <- FindVariableFeatures(subsetted_seurat)
 subsetted_seurat = ScaleData(subsetted_seurat)
 
+# Remove X and Y chromosome genes
+var_features <- VariableFeatures(object = subsetted_seurat)
+xy_genes_to_remove <- intersect(VariableFeatures(object = subsetted_seurat), c("Uba1","Rbmx","Zfx","Kdm5c","Hnrnpdl","Gapdh","Sycp3","Zfy1","Uba1y","Gm28588","Kdm5d","Eif2s3y","Gm29650","Uty","Ddx3y","Usp9y","Zfy2","Gm10256","Gm21693","Gm21704","Gm28919","Gm29554","Gm21454","Gm20831","Gm28595","Gm21865","Gm29433","Gm29276","Gm21739","Gm28887","Gm29221","Gm29206","Gm29209","Gm29060","Gm29380","Gm28612","Gm29082","Gm29644","Gm29566","Gm28664","Gm28930", "Xist", "Tsix"))
+var_features <- var_features[-which(var_features %in% xy_genes_to_remove)]
 
 # UMAP
 subsetted_seurat <- RunUMAP(
   subsetted_seurat, 
-  features = VariableFeatures(object = subsetted_seurat),
+  features = var_features,
   reduction.name = "umap_reduction_scaled",
   slot = "scale.data" # Using scaled data instead of just "data" by default
 )
@@ -257,6 +262,5 @@ cor.test(expressing_data$Cyp46a1,
          expressing_data$Sp1,
          method = "spearman")
 
-# Save the data
-saveRDS(subsetted_seurat, "subsetted_seurat_after_umap.rds")
-saveRDS(data, "subsetted_data.rds")
+
+
